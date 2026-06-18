@@ -1,0 +1,77 @@
+<?php
+session_start();
+require "db.php";
+
+if (isset($_SESSION['user_id'])) {
+    header("Location: dashboard.php"); exit;
+}
+
+$error = "";
+
+if ($_SERVER["REQUEST_METHOD"] === "POST") {
+    $name     = trim($_POST["name"]);
+    $email    = trim($_POST["email"]);
+    $password = $_POST["password"];
+    $confirm  = $_POST["confirm"];
+
+    if (empty($name) || empty($email) || empty($password)) {
+        $error = "All fields are required.";
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $error = "Please enter a valid email address.";
+    } elseif (strlen($password) < 6) {
+        $error = "Password must be at least 6 characters.";
+    } elseif ($password !== $confirm) {
+        $error = "Passwords do not match.";
+    } else {
+        $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+        $stmt->execute([$email]);
+        if ($stmt->fetch()) {
+            $error = "An account with that email already exists.";
+        } else {
+            $hashed = password_hash($password, PASSWORD_DEFAULT);
+            $stmt = $pdo->prepare("INSERT INTO users (name, email, password) VALUES (?, ?, ?)");
+            $stmt->execute([$name, $email, $hashed]);
+            header("Location: login.php?registered=1"); exit;
+        }
+    }
+}
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register — RentVille</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="auth-page">
+    <div class="auth-card">
+        <a href="index.php" class="auth-brand">🏘️ RentVille</a>
+        <h2>Create your account</h2>
+        <p>Start managing your properties today</p>
+        <?php if ($error): ?><div class="alert alert-error"><?= htmlspecialchars($error) ?></div><?php endif; ?>
+        <form method="POST">
+            <div class="form-group">
+                <label>Full Name</label>
+                <input type="text" name="name" required maxlength="100" value="<?= htmlspecialchars($_POST['name'] ?? '') ?>">
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" name="email" required value="<?= htmlspecialchars($_POST['email'] ?? '') ?>">
+            </div>
+            <div class="form-group">
+                <label>Password (min. 6 characters)</label>
+                <input type="password" name="password" required minlength="6">
+            </div>
+            <div class="form-group">
+                <label>Confirm Password</label>
+                <input type="password" name="confirm" required minlength="6">
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Register</button>
+        </form>
+        <p class="text-center mt">Already have an account? <a href="login.php" style="color:#D97706;font-weight:600;">Login</a></p>
+    </div>
+</div>
+</body>
+</html>
